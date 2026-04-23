@@ -4,43 +4,40 @@ on:
   push:
   pull_request:
 
+permissions:
+  security-events: write
+
 jobs:
-  security-checks:
+  security:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      - name: Install Dependencies
-        run: npm install
+      - run: npm install
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+      # ---- SAST ----
+      - uses: github/codeql-action/init@v3
         with:
           languages: javascript
 
-      - name: Run CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/autobuild@v3
 
-      - name: Run npm audit
-        run: npm audit --audit-level=low || true
+      - uses: github/codeql-action/analyze@v3
 
-      - name: Install Syft
-        run: |
+      # ---- SCA ----
+      - run: npm audit --audit-level=low || true
+
+      # ---- SBOM ----
+      - run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh
-
-      - name: Generate SBOM
-        run: |
           syft dir:. -o cyclonedx-json > sbom.json
 
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: sbom.json
